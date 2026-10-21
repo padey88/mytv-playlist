@@ -52,7 +52,7 @@ GROUP = lambda e: ("Radio MYTV" if e["type"] == "audio" else
                    "MYTV Malaysia" if e["num"] < 300 else "MYTV International")
 
 def render_m3u():
-    lines = ['#EXTM3U url-tvg="https://cdn.jsdelivr.net/gh/Some0ne11/EPGMalaysiaIPTV@main/epg.xml"']
+    lines = ['#EXTM3U url-tvg="https://epg.kulnem.space/epg.xml"']
     for e in get_entries():
         lines.append(f'#EXTINF:-1 tvg-chno="{e["num"]}" tvg-logo="{e["logo"]}" '
                      f'group-title="{GROUP(e)}",{e["name"]}')
