@@ -68,6 +68,21 @@ def mint(channel_id):
 def slugify(name):
     return re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
 
+# --- siaranMy (aliahk2024 fork) extra channels, verified live 2026-10-21 ---
+# These are static master m3u8s on GitHub raw CDN; the tonton-family entries in that
+# repo (TV3/8TV/TV9/Didik/DramaSangat) point at tonton SSAI/Fastly hosts that are
+# globally dead (NXDOMAIN) since the April 2026 DMCA takedown — NOT included.
+SIARMY = [
+    (113, "Astro Awani",   "https://raw.githubusercontent.com/aliahk2024/siaranMy/main/channels/AstroAwani/index.m3u8",
+     "https://raw.githubusercontent.com/aliahk2024/siaranMy/main/logo/AstroAwani.png"),
+    (121, "TV1 (Alt)",      "https://raw.githubusercontent.com/aliahk2024/siaranMy/main/channels/Tv1/index.m3u8",
+     "https://raw.githubusercontent.com/aliahk2024/siaranMy/main/logo/Tv1.png"),
+    (122, "Berita RTM (Alt)", "https://raw.githubusercontent.com/aliahk2024/siaranMy/main/channels/BeritaRTM/index.m3u8",
+     "https://raw.githubusercontent.com/aliahk2024/siaranMy/main/logo/BeritaRtm.png"),
+    (131, "Dewan Rakyat TV","https://raw.githubusercontent.com/aliahk2024/siaranMy/main/channels/DewanRakyat/index.m3u8",
+     "https://raw.githubusercontent.com/aliahk2024/siaranMy/main/logo/DewanRakyat.png"),
+]
+
 GROUP = lambda e: ("Radio MYTV" if e["type"] == "audio" else
                    "MYTV Malaysia" if e["num"] < 300 else "MYTV International")
 
@@ -82,6 +97,10 @@ def render_m3u(base):
             lines.append(f"{base}/radio-proxy/{slug}?token={TOKEN}")
         else:
             lines.append(e["hls"])
+    for num, name, url, logo in SIARMY:
+        lines.append(f'#EXTINF:-1 tvg-chno="{num}" tvg-logo="{logo}" '
+                     f'group-title="SiaranMY Extra",{name}')
+        lines.append(url)
     return "\n".join(lines) + "\n"
 
 # ---------------------------------------------------------------- radio proxy
