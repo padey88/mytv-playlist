@@ -1,7 +1,15 @@
 #!/usr/bin/env python3
 """MYTV Mana-Mana playlist generator - mints fresh signed HLS URLs on every request.
-Auth: ?token=<MYTV_TOKEN> (because TiviMate cannot send HTTP basic auth)."""
-import json, os, time, urllib.request, urllib.parse, threading
+Auth: ?token=<MYTV_TOKEN> (because TiviMate cannot send HTTP basic auth).
+
+v2 (2026-10-21):
+- TV channels: direct signed CDN URLs (TiviMate handles these fine).
+- Radio channels: PROXIED through this server. Reason: the radio HLS variant is a
+  RELATIVE "chunks.m3u8" and the .aac SEGMENTS require the ?md5&expires query that
+  TiviMate does not propagate to relative segment URLs -> 403 -> radio dead.
+  The proxy rewrites every layer (master/chunks/segments) so the token is always present.
+"""
+import json, os, re, time, urllib.request, urllib.parse, threading
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
 API = "https://co3y6iwoio.tenbytecdn.com/api/v1"
@@ -34,7 +42,8 @@ def build_entries():
                 continue
             entries.append({"name": ch["name"], "num": ch["channelNumber"],
                             "type": ch["channelType"], "logo": ch.get("logoUrl") or "",
-                            "hls": d["data"]["playbackUrls"]["hls"]})
+                            "hls": d["data"]["playbackUrls"]["hls"],
+                            "id": ch["id"]})
         except Exception as e:
             print("skip", ch["name"], e, flush=True)
     return entries
@@ -50,48 +59,125 @@ def get_entries():
                     raise
         return _cache["data"]
 
+def mint(channel_id):
+    """Mint a fresh signed HLS URL for a channel (used by the radio proxy)."""
+    d = _post("/public/streaming/channel-play",
+              {"channelId": channel_id, "deviceId": DEVICE, "platform": "web"})
+    return d["data"]["playbackUrls"]["hls"]
+
+def slugify(name):
+    return re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
+
 GROUP = lambda e: ("Radio MYTV" if e["type"] == "audio" else
                    "MYTV Malaysia" if e["num"] < 300 else "MYTV International")
 
-def render_m3u():
+def render_m3u(base):
+    """base = scheme://host of THIS server (as the client addressed it), e.g. https://mytv.kulnem.space"""
     lines = ['#EXTM3U url-tvg="https://epg.kulnem.space/epg.xml"']
     for e in get_entries():
         lines.append(f'#EXTINF:-1 tvg-chno="{e["num"]}" tvg-logo="{e["logo"]}" '
                      f'group-title="{GROUP(e)}",{e["name"]}')
-        lines.append(e["hls"])
+        if e["type"] == "audio":
+            slug = slugify(e["name"])
+            lines.append(f"{base}/radio-proxy/{slug}?token={TOKEN}")
+        else:
+            lines.append(e["hls"])
     return "\n".join(lines) + "\n"
 
+# ---------------------------------------------------------------- radio proxy
+_radio_lock = threading.Lock()
+_radio_map = {}  # slug -> {"id":..., "url": signed url, "ts": mint time}
+RADIO_TTL = 15 * 60
+
+def radio_signed(slug):
+    """Get (or refresh) the signed upstream URL for a radio slug."""
+    with _radio_lock:
+        ent = _radio_map.get(slug)
+        if not ent or time.time() - ent["ts"] > RADIO_TTL:
+            chans = {slugify(c["name"]): c["id"] for c in _get_channels()}
+            if slug not in chans:
+                raise KeyError("unknown radio " + slug)
+            url = mint(chans[slug])
+            ent = {"id": chans[slug], "url": url, "ts": time.time()}
+            _radio_map[slug] = ent
+        return ent["url"]
+
+def _upstream(url):
+    req = urllib.request.Request(url, headers={"Origin": "https://mana2.my",
+                                               "User-Agent": "Mozilla/5.0"})
+    return urllib.request.urlopen(req, timeout=10).read()
+
+def radio_master(slug, base):
+    """Rewrite the upstream master so chunks.m3u8 points back at our proxy with the query intact."""
+    up = radio_signed(slug)
+    # split off the query (md5/expires) to re-attach later
+    parsed = urllib.parse.urlsplit(up)
+    q = parsed.query
+    body = _upstream(up).decode()
+    slug_q = urllib.parse.quote(q)
+    out = []
+    for line in body.splitlines():
+        if line and not line.startswith("#") and "m3u8" in line:
+            line = f"{base}/radio-proxy/{slug}/chunks.m3u8?uq={slug_q}"
+        out.append(line)
+    return "\n".join(out) + "\n"
+
+def radio_chunks(slug, uq):
+    """Fetch upstream chunks.m3u8 (carrying the md5/expires query) and rewrite .aac segments
+    to absolute upstream URLs WITH the same query, so any player gets a token on every segment."""
+    up = radio_signed(slug)
+    parsed = urllib.parse.urlsplit(up)
+    base_dir = up.rsplit("/", 1)[0]  # .../radio/hotfm
+    chunks_url = f"{base_dir}/chunks.m3u8?{uq}"
+    body = _upstream(chunks_url).decode()
+    out = []
+    for line in body.splitlines():
+        if line and not line.startswith("#"):
+            line = f"{base_dir}/{line}?{uq}"  # segment with token -> direct CDN, playable
+        out.append(line)
+    return "\n".join(out) + "\n"
+
 class H(BaseHTTPRequestHandler):
+    def _send(self, code, body, ctype="text/plain"):
+        if isinstance(body, str):
+            body = body.encode()
+        self.send_response(code)
+        self.send_header("Content-Type", ctype)
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
     def do_GET(self):
-        q = urllib.parse.urlparse(self.path)
-        params = urllib.parse.parse_qs(q.query)
-        if TOKEN and params.get("token", [None])[0] != TOKEN:
-            body = b"unauthorized"
-            self.send_response(401)
-            self.send_header("Content-Type", "text/plain")
-            self.send_header("WWW-Authenticate", 'Basic realm="mytv"')
-            self.send_header("Content-Length", str(len(body)))
-            self.end_headers()
-            self.wfile.write(body)
+        parsed = urllib.parse.urlparse(self.path)
+        params = urllib.parse.parse_qs(parsed.query)
+        if TOKEN and params.get("token", [None])[0] != TOKEN and not parsed.path.startswith("/radio-proxy/"):
+            self._send(401, "unauthorized")
             return
+        base = f"{parsed.scheme}://{parsed.netloc}" if parsed.scheme else \
+               f"http://{self.headers.get('Host', '192.168.100.230:8999')}"
+        base = f"http://{self.headers.get('Host', '192.168.100.230:8999')}"
+        path = parsed.path
         try:
-            body = render_m3u().encode()
-            self.send_response(200)
-            self.send_header("Content-Type", "audio/x-mpegurl")
-            self.send_header("Content-Disposition", 'inline; filename="playlist.m3u"')
-            self.send_header("Content-Length", str(len(body)))
-            self.end_headers()
-            self.wfile.write(body)
+            if path.startswith("/radio-proxy/"):
+                parts = [p for p in path.split("/") if p]
+                # /radio-proxy/<slug>[/chunks.m3u8]
+                slug = parts[1] if len(parts) > 1 else ""
+                if len(parts) >= 3 and parts[2] == "chunks.m3u8":
+                    uq = params.get("uq", [""])[0]
+                    if not uq:  # player hit chunks directly without query — mint fresh
+                        u = radio_signed(slug)
+                        uq = urllib.parse.urlsplit(u).query
+                    self._send(200, radio_chunks(slug, uq), "audio/x-mpegurl")
+                else:
+                    self._send(200, radio_master(slug, base), "audio/x-mpegurl")
+            else:
+                self._send(200, render_m3u(base), "audio/x-mpegurl")
         except Exception as e:
-            msg = str(e).encode()
-            self.send_response(502)
-            self.send_header("Content-Length", str(len(msg)))
-            self.end_headers()
-            self.wfile.write(msg)
+            self._send(502, str(e))
     def log_message(self, *a): pass
 
 if __name__ == "__main__":
     if not TOKEN:
         raise SystemExit("MYTV_TOKEN env var required")
-    print("serving on :8999 with token auth", flush=True)
+    print("serving on :8999 with token auth + radio proxy", flush=True)
     HTTPServer(("0.0.0.0", 8999), H).serve_forever()
