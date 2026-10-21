@@ -69,10 +69,21 @@ def slugify(name):
     return re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
 
 # --- siaranMy (aliahk2024 fork) extra channels, verified live 2026-10-21 ---
-# These are static master m3u8s on GitHub raw CDN; the tonton-family entries in that
-# repo (TV3/8TV/TV9/Didik/DramaSangat) point at tonton SSAI/Fastly hosts that are
-# globally dead (NXDOMAIN) since the April 2026 DMCA takedown — NOT included.
+# Static master m3u8s on GitHub raw CDN.
+# tonton-family entries (TV3/8TV/TV9/Didik/DramaSangat) point at tonton SSAI/Fastly
+# hosts that were globally NXDOMAIN from the datacenter at test time; added on user
+# request anyway — may still resolve from a Malaysian residential IP.
 SIARMY = [
+    (103, "TV3",           "https://raw.githubusercontent.com/aliahk2024/siaranMy/main/channels/Tv3/index.m3u8",
+     "https://raw.githubusercontent.com/aliahk2024/siaranMy/main/logo/Tv3.png"),
+    (105, "8TV",           "https://raw.githubusercontent.com/aliahk2024/siaranMy/main/channels/8tv/index.m3u8",
+     "https://raw.githubusercontent.com/aliahk2024/siaranMy/main/logo/8tv.png"),
+    (107, "TV9",           "https://raw.githubusercontent.com/aliahk2024/siaranMy/main/channels/Tv9/index.m3u8",
+     "https://raw.githubusercontent.com/aliahk2024/siaranMy/main/logo/Tv9.png"),
+    (109, "DidikTV KPM",   "https://raw.githubusercontent.com/aliahk2024/siaranMy/main/channels/DidikTvKPM/index.m3u8",
+     "https://raw.githubusercontent.com/aliahk2024/siaranMy/main/logo/DidikTv.png"),
+    (111, "Drama Sangat",  "https://raw.githubusercontent.com/aliahk2024/siaranMy/main/channels/DramaSangat/index.m3u8",
+     "https://raw.githubusercontent.com/aliahk2024/siaranMy/main/logo/DramaSangat.png"),
     (113, "Astro Awani",   "https://raw.githubusercontent.com/aliahk2024/siaranMy/main/channels/AstroAwani/index.m3u8",
      "https://raw.githubusercontent.com/aliahk2024/siaranMy/main/logo/AstroAwani.png"),
     (121, "TV1 (Alt)",      "https://raw.githubusercontent.com/aliahk2024/siaranMy/main/channels/Tv1/index.m3u8",
