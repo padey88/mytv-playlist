@@ -1,0 +1,11 @@
+[Unit]
+Description=MYTV mana2.my playlist generator
+After=network-online.target
+
+[Service]
+ExecStart=/usr/bin/python3 /home/hermes/mytv_playlist/mytv_server.py
+Restart=always
+RestartSec=15
+
+[Install]
+WantedBy=default.target
