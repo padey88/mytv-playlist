@@ -1,10 +1,12 @@
-
 #!/usr/bin/env python3
-"""MYTV Mana-Mana playlist generator - mints fresh signed HLS URLs on every request."""
-import json, time, urllib.request, threading
+"""MYTV Mana-Mana playlist generator - mints fresh signed HLS URLs on every request.
+Auth: ?token=<MYTV_TOKEN> (because TiviMate cannot send HTTP basic auth)."""
+import json, os, time, urllib.request, urllib.parse, threading
+from http.server import HTTPServer, BaseHTTPRequestHandler
 
 API = "https://co3y6iwoio.tenbytecdn.com/api/v1"
 DEVICE = "tivimate-mytv-kulnem"
+TOKEN = os.environ.get("MYTV_TOKEN", "")
 CACHE_TTL = 20 * 60  # re-sign every 20 min (tokens last 30)
 
 _lock = threading.Lock()
@@ -30,11 +32,11 @@ def build_entries():
                       {"channelId": ch["id"], "deviceId": DEVICE, "platform": "web"})
             if not d.get("success") or ch.get("drmEnabled"):
                 continue
-            hls = d["data"]["playbackUrls"]["hls"]
             entries.append({"name": ch["name"], "num": ch["channelNumber"],
-                            "type": ch["channelType"], "logo": ch.get("logoUrl") or "", "hls": hls})
+                            "type": ch["channelType"], "logo": ch.get("logoUrl") or "",
+                            "hls": d["data"]["playbackUrls"]["hls"]})
         except Exception as e:
-            print("skip", ch["name"], e)
+            print("skip", ch["name"], e, flush=True)
     return entries
 
 def get_entries():
@@ -43,7 +45,7 @@ def get_entries():
             try:
                 _cache["data"] = build_entries()
                 _cache["ts"] = time.time()
-            except Exception as e:
+            except Exception:
                 if not _cache["data"]:
                     raise
         return _cache["data"]
@@ -59,19 +61,37 @@ def render_m3u():
         lines.append(e["hls"])
     return "\n".join(lines) + "\n"
 
+class H(BaseHTTPRequestHandler):
+    def do_GET(self):
+        q = urllib.parse.urlparse(self.path)
+        params = urllib.parse.parse_qs(q.query)
+        if TOKEN and params.get("token", [None])[0] != TOKEN:
+            body = b"unauthorized"
+            self.send_response(401)
+            self.send_header("Content-Type", "text/plain")
+            self.send_header("WWW-Authenticate", 'Basic realm="mytv"')
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
+        try:
+            body = render_m3u().encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "audio/x-mpegurl")
+            self.send_header("Content-Disposition", 'inline; filename="playlist.m3u"')
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+        except Exception as e:
+            msg = str(e).encode()
+            self.send_response(502)
+            self.send_header("Content-Length", str(len(msg)))
+            self.end_headers()
+            self.wfile.write(msg)
+    def log_message(self, *a): pass
+
 if __name__ == "__main__":
-    from http.server import HTTPServer, BaseHTTPRequestHandler
-    class H(BaseHTTPRequestHandler):
-        def do_GET(self):
-            try:
-                body = render_m3u().encode()
-                self.send_response(200)
-                self.send_header("Content-Type", "audio/x-mpegurl")
-                self.send_header("Content-Disposition", 'inline; filename="playlist.m3u"')
-                self.end_headers()
-                self.wfile.write(body)
-            except Exception as e:
-                self.send_response(502); self.end_headers(); self.wfile.write(str(e).encode())
-        def log_message(self, *a): pass
-    print("serving on :8999")
+    if not TOKEN:
+        raise SystemExit("MYTV_TOKEN env var required")
+    print("serving on :8999 with token auth", flush=True)
     HTTPServer(("0.0.0.0", 8999), H).serve_forever()
