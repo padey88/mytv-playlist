@@ -68,11 +68,9 @@ def mint(channel_id):
 def slugify(name):
     return re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
 
-# --- siaranMy (aliahk2024 fork) extra channels, verified live 2026-10-21 ---
-# Static master m3u8s on GitHub raw CDN.
-# tonton-family entries (TV3/8TV/TV9/Didik/DramaSangat) point at tonton SSAI/Fastly
-# hosts that were globally NXDOMAIN from the datacenter at test time; added on user
-# request anyway — may still resolve from a Malaysian residential IP.
+# --- siaranMy (aliahk2024 fork) tonton-family channels, added on user request 2026-10-21 ---
+# Streams point at tonton SSAI/Fastly hosts that were NXDOMAIN from the datacenter at
+# test time — may still resolve from a Malaysian residential IP.
 SIARMY = [
     (103, "TV3",           "https://raw.githubusercontent.com/aliahk2024/siaranMy/main/channels/Tv3/index.m3u8",
      "https://raw.githubusercontent.com/aliahk2024/siaranMy/main/logo/Tv3.png"),
@@ -84,18 +82,9 @@ SIARMY = [
      "https://raw.githubusercontent.com/aliahk2024/siaranMy/main/logo/DidikTv.png"),
     (111, "Drama Sangat",  "https://raw.githubusercontent.com/aliahk2024/siaranMy/main/channels/DramaSangat/index.m3u8",
      "https://raw.githubusercontent.com/aliahk2024/siaranMy/main/logo/DramaSangat.png"),
-    (113, "Astro Awani",   "https://raw.githubusercontent.com/aliahk2024/siaranMy/main/channels/AstroAwani/index.m3u8",
-     "https://raw.githubusercontent.com/aliahk2024/siaranMy/main/logo/AstroAwani.png"),
-    (121, "TV1 (Alt)",      "https://raw.githubusercontent.com/aliahk2024/siaranMy/main/channels/Tv1/index.m3u8",
-     "https://raw.githubusercontent.com/aliahk2024/siaranMy/main/logo/Tv1.png"),
-    (122, "Berita RTM (Alt)", "https://raw.githubusercontent.com/aliahk2024/siaranMy/main/channels/BeritaRTM/index.m3u8",
-     "https://raw.githubusercontent.com/aliahk2024/siaranMy/main/logo/BeritaRtm.png"),
-    (131, "Dewan Rakyat TV","https://raw.githubusercontent.com/aliahk2024/siaranMy/main/channels/DewanRakyat/index.m3u8",
-     "https://raw.githubusercontent.com/aliahk2024/siaranMy/main/logo/DewanRakyat.png"),
 ]
 
-GROUP = lambda e: ("Radio MYTV" if e["type"] == "audio" else
-                   "MYTV Malaysia" if e["num"] < 300 else "MYTV International")
+GROUP = lambda e: ("Radio" if e["type"] == "audio" else "Live TV")
 
 def render_m3u(base):
     """base = scheme://host of THIS server (as the client addressed it), e.g. https://mytv.kulnem.space"""
@@ -110,7 +99,7 @@ def render_m3u(base):
             lines.append(e["hls"])
     for num, name, url, logo in SIARMY:
         lines.append(f'#EXTINF:-1 tvg-chno="{num}" tvg-logo="{logo}" '
-                     f'group-title="SiaranMY Extra",{name}')
+                     f'group-title="Live TV",{name}')
         lines.append(url)
     return "\n".join(lines) + "\n"
 
