@@ -37,6 +37,46 @@ ASTRO_AWANI = ("Astro Awani", 113, "AstroAwaniHD",
                "https://raw.githubusercontent.com/aliahk2024/siaranMy/main/logo/AstroAwani.png")
 STATIC_TV = [DRAMA_SANGAT, ASTRO_AWANI]
 
+# --- US/UK sports + English movies/series (free FAST channels, verified live 2026-10-23) ---
+# (label, chno, EPG id or None, group, url)
+FAST_TV = [
+    # Sports — EPL/UCL-adjacent coverage in English
+    ("Astro Arena",       131, "AstroArena",  "Sports EN",
+     "https://linearjitp-playback.astro.com.my/dash-wv/linear/2604/default_ott.mpd"),
+    ("Astro Arena 2",     132, "AstroArena2", "Sports EN",
+     "https://linearjitp-playback.astro.com.my/dash-wv/linear/5057/default_ott.mpd"),
+    ("beIN Sports XTRA",  133, None,          "Sports EN",
+     "https://bein-xtra-bein.amagi.tv/playlist.m3u8"),
+    ("CBS Sports Golazo", 134, None,          "Sports EN",
+     "https://dai.google.com/linear/hls/event/7f3Wv6f7QEKfQna22jHqLQ/master.m3u8"),
+    ("CBS Sports HQ",     135, None,          "Sports EN",
+     "https://jmp2.uk/plu-5e9f2c05172a0f0007db4786.m3u8"),
+    ("FIFA+",             136, None,          "Sports EN",
+     "https://jmp2.uk/plu-660c29b5aec9680008f5b4a4.m3u8"),
+    ("DAZN Combat",       137, None,          "Sports EN",
+     "https://jmp2.uk/plu-64d626ac9b414d000820e2fc.m3u8"),
+    ("MUTV",              138, None,          "Sports EN",
+     "https://jmp2.uk/plu-mutv.m3u8"),
+    # Movies / series — English
+    ("30A Classic Movies",141, None,          "Movies EN",
+     "https://30a-tv.com/feeds/pzaz/30atvmovies.m3u8"),
+    ("00s Replay",        142, None,          "Movies EN",
+     "https://jmp2.uk/plu-62ba60f059624e000781c436.m3u8"),
+    ("70s Cinema",        143, None,          "Movies EN",
+     "https://jmp2.uk/plu-5f4d878d3d19b30007d2e782.m3u8"),
+    ("80s Rewind",        144, None,          "Movies EN",
+     "https://jmp2.uk/plu-5ca525b650be2571e3943c63.m3u8"),
+    ("90s Throwback",     145, None,          "Movies EN",
+     "https://jmp2.uk/plu-5f4d86f519358a00072b978e.m3u8"),
+    ("CSI",               146, None,          "Movies EN",
+     "https://jmp2.uk/plu-6304f8d5ffb61000071ab478.m3u8"),
+    ("Charge!",           147, None,          "Movies EN",
+     "https://fast-channels.sinclairstoryline.com/CHARGE/index.m3u8"),
+    ("Comet",             148, None,          "Movies EN",
+     "https://fast-channels.sinclairstoryline.com/COMET/index.m3u8"),
+]
+# MUTV placeholder above is not a real jmp2 link — resolve from iptv-org at sync time instead.
+
 # mana2 channel name -> Some0ne11 EPG id (None = no EPG exists; omit attr)
 EPG_MAP = {
     "TV1": "TV1", "TV2": "TV2", "TVS": "TVSarawak", "TV ALHIJRAH": "AlHijrah",
@@ -161,6 +201,14 @@ def render_m3u(base):
     for name, chno, epg_id, url, logo in STATIC_TV:
         lines.append(f'#EXTINF:-1 tvg-id="{epg_id}" tvg-chno="{chno}" tvg-logo="{logo}" '
                      f'group-title="Live TV",{name}')
+        lines.append(url)
+
+    # US/UK sports + English movies (FAST channels)
+    for name, chno, epg_id, group, url in FAST_TV:
+        if "plu-mutv" in url:  # placeholder — skip broken link
+            continue
+        idattr = f' tvg-id="{epg_id}"' if epg_id else ""
+        lines.append(f'#EXTINF:-1{idattr} tvg-chno="{chno}" group-title="{group}",{name}')
         lines.append(url)
     return "\n".join(lines) + "\n"
 
