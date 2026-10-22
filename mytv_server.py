@@ -77,6 +77,21 @@ FAST_TV = [
 ]
 # MUTV placeholder above is not a real jmp2 link — resolve from iptv-org at sync time instead.
 
+
+# Round 2 (2026-10-23): US/UK news, docs, kids, entertainment — verified live
+FAST_TV += [
+    ("CBS News 24/7",     151, None, "News EN", "https://jmp2.uk/plu-6350fdd266e9ea0007bedec5.m3u8"),
+    ("Bloomberg TV",      152, None, "News EN", "http://23.237.104.106:8080/USA_BLOOMBERG/index.m3u8"),
+    ("Newsmax TV",        153, None, "News EN", "https://nmx1ota.akamaized.net/hls/live/2107010/Live_1/index.m3u8"),
+    ("Fox Weather",       154, None, "News EN", "https://247wlive.foxweather.com/stream/index.m3u8"),
+    ("History Hit",       155, None, "Docs EN", "https://lds-timeline-rakuten.amagi.tv/playlist.m3u8"),
+    ("Tastemade Travel",  156, None, "Docs EN", "https://d6ef3usc6d9cl.cloudfront.net/Tastemade_Travel.m3u8"),
+    ("Dove Channel",      157, None, "Movies EN", "https://linear-896.frequency.stream/dist/cineverse/896/hls/master/playlist.m3u8"),
+    ("Midnight Pulp",     158, None, "Movies EN", "https://linear-897.frequency.stream/dist/cineverse/897/hls/master/playlist.m3u8"),
+    ("RetroCrush",        159, None, "Movies EN", "https://linear-899.frequency.stream/dist/cineverse/899/hls/master/playlist.m3u8"),
+    ("PBS Kids",          160, None, "Kids EN", "https://livestream.pbskids.org/out/v1/14507d931bbe48a69287e4850e53443c/est.m3u8"),
+]
+
 # mana2 channel name -> Some0ne11 EPG id (None = no EPG exists; omit attr)
 EPG_MAP = {
     "TV1": "TV1", "TV2": "TV2", "TVS": "TVSarawak", "TV ALHIJRAH": "AlHijrah",
